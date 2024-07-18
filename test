@@ -6,3 +6,5 @@ https://devforum.okta.com/t/asp-net-automatic-redirect-owin-configuration/16633
 app.UseCookieAuthentication(new CookieAuthenticationOptions {
             AuthenticationType = DefaultAuthenticationTypes.ApplicationCookie,
             LoginPath = new PathString("/Account/Login"),
+
+https://bitoftech.net/2014/06/01/token-based-authentication-asp-net-web-api-2-owin-asp-net-identity/comment-page-4/
