@@ -1,3 +1,8 @@
 https://andrewlock.net/a-look-behind-the-jwt-bearer-authentication-middleware-in-asp-net-core/
 https://auth0.com/blog/how-to-validate-jwt-dotnet/
 https://docs.servicestack.net/auth/jwt-identity-auth#authenticating-with-jwt
+
+https://devforum.okta.com/t/asp-net-automatic-redirect-owin-configuration/16633
+app.UseCookieAuthentication(new CookieAuthenticationOptions {
+            AuthenticationType = DefaultAuthenticationTypes.ApplicationCookie,
+            LoginPath = new PathString("/Account/Login"),
