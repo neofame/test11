@@ -161,5 +161,184 @@ Classify는 예제일 뿐입니다. 따라서 myGrpcClient.MyCall(someParam, dea
 이 답변 개선
 뒤따르다
 
+     byte[] byteKey = File.ReadAllBytes(fole);
 
+     X509Certificate2 xcerty = new X509Certificate2(fole,"leopard00==");
+
+
+     byte[] rawdata = xcerty.RawData;
+     Console.WriteLine("Content Type: {0}{1}", X509Certificate2.GetCertContentType(rawdata), Environment.NewLine);
+     Console.WriteLine("Friendly Name: {0}{1}", xcerty.FriendlyName, Environment.NewLine);
+     Console.WriteLine("Certificate Verified?: {0}{1}", xcerty.Verify(), Environment.NewLine);
+     Console.WriteLine("Simple Name: {0}{1}", xcerty.GetNameInfo(X509NameType.SimpleName, true), Environment.NewLine);
+     Console.WriteLine("Signature Algorithm: {0}{1}", xcerty.SignatureAlgorithm.FriendlyName, Environment.NewLine);
+     Console.WriteLine("Public Key: {0}{1}", xcerty.PublicKey.Key.ToXmlString(false), Environment.NewLine);
+     Console.WriteLine("Certificate Archived?: {0}{1}", xcerty.Archived, Environment.NewLine);
+     Console.WriteLine("Length of Raw Data: {0}{1}", xcerty.RawData.Length, Environment.NewLine);
+
+
+
+
+
+     EncryptFile(originalFile, (RSA)xcerty.PublicKey.Key);
+     DecryptFile(encryptedFile, (RSA)xcerty.GetRSAPrivateKey());
+
+
+
+
+     string original = "Here is some data to encrypt!";
+
+     // Create a new instance of the Aes
+     // class.  This generates a new key and initialization
+     // vector (IV).
+     using (Aes myAes = Aes.Create())
+     {
+
+         // Encrypt the string to an array of bytes.
+         byte[] encrypted = EncryptStringToBytes_Aes(original, myAes.Key, myAes.IV);
+         //    string aaa = Encoding.ASCII.GetString(encrypted);
+
+
+         string s = Convert.ToBase64String(encrypted);
+         Console.WriteLine("The base 64 string:\n   {0}\n", s);
+
+         // Restore the byte array.
+
+         string utf8 = DecryptStringFromBytes_Aes(Convert.FromBase64String(s), myAes.Key, myAes.IV);
+
+       //  string ascii = DecryptStringFromBytes_Aes(Encoding.Default.GetBytes(bbb), myAes.Key, myAes.IV);
+
+         // Decrypt the bytes to a string.
+         string roundtrip = DecryptStringFromBytes_Aes(encrypted, myAes.Key, myAes.IV);
+
+         //Display the original data and the decrypted data.
+         Console.WriteLine("Original:   {0}", original);
+         Console.WriteLine("Round Trip: {0}", roundtrip);
+     }
+
+
+      
+
+     //X509Certificate2UI.DisplayCertificate(xcerty);
+
+     // Create an input file with test data.
+     //StreamWriter sw = File.CreateText(""originalFile"");
+     //sw.WriteLine("Test data to be encrypted");
+     //sw.Close();
+
+     // Get the certificate to use to encrypt the key.
+     X509Certificate2 cert = GetCertificateFromStore(@"d:\tmp\signCert.der");
+
+     if (cert == null)
+     {
+         Console.WriteLine("Certificate 'CN=CERT_SIGN_TEST_CERT' not found.");
+         Console.ReadLine();
+     }
+     string baseAddress = "http://localhost:9090/";
+
+     // Start OWIN host
+     IDisposable signalR = null;
+     signalR = WebApp.Start<Startup>(url: baseAddress);
+     // using ()
+     {
+         // Create HttpCient and make a request to api/values
+         HttpClient client = new HttpClient();
+
+        // HttpResponseMessage response = client.GetAsync(baseAddress + "api/values").Result;
+         HttpResponseMessage response = client.GetAsync(baseAddress + "Customer/1").Result;
+         
+
+         Console.WriteLine(response);
+         Console.WriteLine(response.Content.ReadAsStringAsync().Result);
+     }
+
+
+
+     Console.ReadLine();
+ }
+
+
+
+ static byte[] EncryptStringToBytes_Aes(string plainText, byte[] Key, byte[] IV)
+ {
+     // Check arguments.
+     if (plainText == null || plainText.Length <= 0)
+         throw new ArgumentNullException("plainText");
+     if (Key == null || Key.Length <= 0)
+         throw new ArgumentNullException("Key");
+     if (IV == null || IV.Length <= 0)
+         throw new ArgumentNullException("IV");
+     byte[] encrypted;
+
+     // Create an Aes object
+     // with the specified key and IV.
+     using (Aes aesAlg = Aes.Create())
+     {
+         aesAlg.Key = Key;
+         aesAlg.IV = IV;
+
+         // Create an encryptor to perform the stream transform.
+         ICryptoTransform encryptor = aesAlg.CreateEncryptor(aesAlg.Key, aesAlg.IV);
+
+         // Create the streams used for encryption.
+         using (MemoryStream msEncrypt = new MemoryStream())
+         {
+             using (CryptoStream csEncrypt = new CryptoStream(msEncrypt, encryptor, CryptoStreamMode.Write))
+             {
+                 using (StreamWriter swEncrypt = new StreamWriter(csEncrypt))
+                 {
+                     //Write all data to the stream.
+                     swEncrypt.Write(plainText);
+                 }
+                 encrypted = msEncrypt.ToArray();
+             }
+         }
+     }
+
+     // Return the encrypted bytes from the memory stream.
+     return encrypted;
+ }
+
+ static string DecryptStringFromBytes_Aes(byte[] cipherText, byte[] Key, byte[] IV)
+ {
+     // Check arguments.
+     if (cipherText == null || cipherText.Length <= 0)
+         throw new ArgumentNullException("cipherText");
+     if (Key == null || Key.Length <= 0)
+         throw new ArgumentNullException("Key");
+     if (IV == null || IV.Length <= 0)
+         throw new ArgumentNullException("IV");
+
+     // Declare the string used to hold
+     // the decrypted text.
+     string plaintext = null;
+
+     // Create an Aes object
+     // with the specified key and IV.
+     using (Aes aesAlg = Aes.Create())
+     {
+         aesAlg.Key = Key;
+         aesAlg.IV = IV;
+
+         // Create a decryptor to perform the stream transform.
+         ICryptoTransform decryptor = aesAlg.CreateDecryptor(aesAlg.Key, aesAlg.IV);
+
+         // Create the streams used for decryption.
+         using (MemoryStream msDecrypt = new MemoryStream(cipherText))
+         {
+             using (CryptoStream csDecrypt = new CryptoStream(msDecrypt, decryptor, CryptoStreamMode.Read))
+             {
+                 using (StreamReader srDecrypt = new StreamReader(csDecrypt))
+                 {
+
+                     // Read the decrypted bytes from the decrypting stream
+                     // and place them in a string.
+                     plaintext = srDecrypt.ReadToEnd();
+                 }
+             }
+         }
+     }
+
+     return plaintext;
+ }
 
