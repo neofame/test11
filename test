@@ -12,6 +12,9 @@ https://bitoftech.net/2014/06/01/token-based-authentication-asp-net-web-api-2-ow
 https://learn.microsoft.com/ko-kr/aspnet/core/grpc/comparison?view=aspnetcore-8.0
 https://github.com/dotarj/protobuf-net-data
 
+https://www.codeproject.com/Articles/5382064/gRPC-NET-8-0-and-Kestrel-in-Easy-Samples
+https://medium.com/@lukastosic/part-2-grpc-its-fairly-simple-c-crud-example-f8ff3ce9bb85
+https://blog.markvincze.com/include-multi-file-protobuf-package-in-dotnet/
 
 using System;
 using System.IO;
