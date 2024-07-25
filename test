@@ -345,3 +345,45 @@ Classify는 예제일 뿐입니다. 따라서 myGrpcClient.MyCall(someParam, dea
      return plaintext;
  }
 
+
+
+   public class GrpcHostedService : IHostedService
+   {
+       private Server _server;
+
+       public GrpcHostedService(Server server)
+       {
+           _server = server;
+       }
+
+       public Task StartAsync(CancellationToken cancellationToken)
+       {
+           _server.Start();
+           return Task.CompletedTask;
+       }
+
+       public async Task StopAsync(CancellationToken cancellationToken) => await _server.ShutdownAsync();
+   }
+
+   class Program
+   {
+       const int Port = 30052;
+
+       public static async Task Main(string[] args)
+       {
+           var hostBuilder = new HostBuilder()
+               // Add configuration, logging, ...
+               .ConfigureServices((hostContext, services) =>
+               {
+                   // Better to use Dependency Injection for GreeterImpl
+                   Server server = new Server
+                   {
+                       Services = { Greeter.BindService(new GreeterImpl()) },
+                       Ports = { new ServerPort("localhost", 30052, ServerCredentials.Insecure) }
+                   };
+                   services.AddSingleton<Server>(server);
+                   services.AddSingleton<IHostedService, GrpcHostedService>();
+               });
+
+           await hostBuilder.RunConsoleAsync();
+       }
