@@ -387,3 +387,62 @@ Classify는 예제일 뿐입니다. 따라서 myGrpcClient.MyCall(someParam, dea
 
            await hostBuilder.RunConsoleAsync();
        }
+
+
+
+        public static string CreateProto()
+        {
+            var model = ProtoBuf.Meta.RuntimeTypeModel.Default;
+
+            var type = typeof(SubClass);
+
+            if (null != type.BaseType && type.BaseType != typeof(Object))
+            {
+                var hierarchy = new List<Type> { type };
+                var baseType = type.BaseType;
+                while (null != baseType)
+                {
+                    if (baseType != typeof(Object))
+                    {
+                        hierarchy.Add(baseType);
+                    }
+                    baseType = baseType.BaseType;
+                }
+
+                hierarchy.Reverse();
+                var metaType = model.Add(hierarchy.First(), true);
+                for (int i = 1; i < hierarchy.Count; i++)
+                {
+                    model.Add(hierarchy[i], true);
+                    metaType = metaType.AddSubType(i, hierarchy[i]);
+                }
+            }
+            else
+            {
+                model.Add(type, true);
+            }
+
+            var properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance).OrderBy(p => p.Name);
+
+            var tagNumber = 1;
+            foreach (var propertyInfo in properties)
+            {
+                model[type].Add(tagNumber, propertyInfo.Name);
+                tagNumber++;
+            }
+
+            var schema = model.GetSchema(type, ProtoSyntax.Proto3);
+            return schema;
+        }
+    }
+
+    public class BaseClass
+    {
+        public string StringPropOnBaseClass { get; set; }
+    }
+
+    public class SubClass : BaseClass
+    {
+        public string StringPropOnSubClass { get; set; }
+    }
+}
