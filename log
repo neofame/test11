@@ -1,3 +1,144 @@
+To generate gRPC proto files from C# classes, you’ll need to follow a similar approach as the Python example, but adapted for C#. Here’s a step-by-step guide:
+
+Step 1: Define Your C# Classes
+
+public class ExampleClass
+{
+    public int Id { get; set; }
+    public string Name { get; set; }
+}
+
+Step 2: Create a Script to Generate Proto Files
+
+Create a C# script to read the class definitions and generate the .proto file. This script can use reflection to inspect the class properties and generate the corresponding proto fields.
+
+Here’s an example script in C#:
+
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+
+public class ProtoGenerator
+{
+    public static void GenerateProto(Type classType)
+    {
+        var className = classType.Name;
+        var properties = classType.GetProperties();
+
+        using (var writer = new StreamWriter($"{className.ToLower()}.proto"))
+        {
+            writer.WriteLine("syntax = \"proto3\";");
+            writer.WriteLine();
+            writer.WriteLine($"message {className} {{");
+
+            int fieldNumber = 1;
+            foreach (var property in properties)
+            {
+                var protoType = GetProtoType(property.PropertyType);
+                writer.WriteLine($"    {protoType} {property.Name.ToLower()} = {fieldNumber};");
+                fieldNumber++;
+            }
+
+            writer.WriteLine("}");
+        }
+    }
+
+    private static string GetProtoType(Type type)
+    {
+        if (type == typeof(int) || type == typeof(int?)) return "int32";
+        if (type == typeof(long) || type == typeof(long?)) return "int64";
+        if (type == typeof(float) || type == typeof(float?)) return "float";
+        if (type == typeof(double) || type == typeof(double?)) return "double";
+        if (type == typeof(bool) || type == typeof(bool?)) return "bool";
+        if (type == typeof(string)) return "string";
+        // Add more mappings as needed
+
+        throw new NotSupportedException($"Unsupported type: {type.Name}");
+    }
+
+    public static void Main(string[] args)
+    {
+        GenerateProto(typeof(ExampleClass));
+        Console.WriteLine("Proto file generated successfully.");
+    }
+}
+
+Step 3: Compile the Proto Files
+
+Use the protoc compiler to generate gRPC stubs from the .proto file.
+
+protoc --csharp_out=. --grpc_out=. --plugin=protoc-gen-grpc=grpc_csharp_plugin exampleclass.proto
+
+Putting it All Together
+
+	1.	Define your C# classes:
+
+public class ExampleClass
+{
+    public int Id { get; set; }
+    public string Name { get; set; }
+}
+
+	2.	Create a script to generate the proto files:
+
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+
+public class ProtoGenerator
+{
+    public static void GenerateProto(Type classType)
+    {
+        var className = classType.Name;
+        var properties = classType.GetProperties();
+
+        using (var writer = new StreamWriter($"{className.ToLower()}.proto"))
+        {
+            writer.WriteLine("syntax = \"proto3\";");
+            writer.WriteLine();
+            writer.WriteLine($"message {className} {{");
+
+            int fieldNumber = 1;
+            foreach (var property in properties)
+            {
+                var protoType = GetProtoType(property.PropertyType);
+                writer.WriteLine($"    {protoType} {property.Name.ToLower()} = {fieldNumber};");
+                fieldNumber++;
+            }
+
+            writer.WriteLine("}");
+        }
+    }
+
+    private static string GetProtoType(Type type)
+    {
+        if (type == typeof(int) || type == typeof(int?)) return "int32";
+        if (type == typeof(long) || type == typeof(long?)) return "int64";
+        if (type == typeof(float) || type == typeof(float?)) return "float";
+        if (type == typeof(double) || type == typeof(double?)) return "double";
+        if (type == typeof(bool) || type == typeof(bool?)) return "bool";
+        if (type == typeof(string)) return "string";
+        // Add more mappings as needed
+
+        throw new NotSupportedException($"Unsupported type: {type.Name}");
+    }
+
+    public static void Main(string[] args)
+    {
+        GenerateProto(typeof(ExampleClass));
+        Console.WriteLine("Proto file generated successfully.");
+    }
+}
+
+	3.	Compile the proto file using protoc:
+
+protoc --csharp_out=. --grpc_out=. --plugin=protoc-gen-grpc=grpc_csharp_plugin exampleclass.proto
+
+This setup will generate the necessary gRPC and message classes for your ExampleClass in C#. You might need to extend the script for more complex data types and nested classes.
+
+
 /*        public static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
 
         static void Log()
