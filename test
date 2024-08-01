@@ -446,3 +446,40 @@ Classify는 예제일 뿐입니다. 따라서 myGrpcClient.MyCall(someParam, dea
         public string StringPropOnSubClass { get; set; }
     }
 }
+
+
+
+
+public class InheritanceTest
+{
+    static void Main()
+    {
+        Console.WriteLine(CreateProto());
+
+        var obj = new SubClass {
+            StringPropOnBaseClass = "abc",
+            StringPropOnSubClass = "def" };
+        var clone = Serializer.DeepClone(obj);
+        Console.WriteLine(clone.StringPropOnBaseClass);
+        Console.WriteLine(clone.StringPropOnSubClass);
+    }
+    public static string CreateProto()
+    {
+        var model = ProtoBuf.Meta.RuntimeTypeModel.Default;
+
+        var metaType = model.Add(typeof(SubClass), false);
+        metaType.AddField(1, "StringPropOnSubClass");
+        metaType.AddField(2, "StringPropOnBaseClass");
+
+        var schema =model.GetSchema(typeof(SubClass), ProtoSyntax.Proto3);
+        return schema;
+    }
+}
+이는 다음을 출력합니다.
+
+syntax = "proto3";
+
+message SubClass {
+   string StringPropOnSubClass = 1;
+   string StringPropOnBaseClass = 2;
+}
