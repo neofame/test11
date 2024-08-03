@@ -16,82 +16,6 @@ https://www.codeproject.com/Articles/5382064/gRPC-NET-8-0-and-Kestrel-in-Easy-Sa
 https://medium.com/@lukastosic/part-2-grpc-its-fairly-simple-c-crud-example-f8ff3ce9bb85
 https://blog.markvincze.com/include-multi-file-protobuf-package-in-dotnet/
 https://github.com/grpc/grpc/tree/master/src/csharp/Grpc.Tools
-using System;
-using System.IO;
-using System.IO.Pipes;
-
-class PipeServer
-{
-    static void Main()
-    {
-        using (NamedPipeServerStream pipeServer =
-            new NamedPipeServerStream("testpipe", PipeDirection.Out))
-        {
-            Console.WriteLine("NamedPipeServerStream object created.");
-
-            // Wait for a client to connect
-            Console.Write("Waiting for client connection...");
-            pipeServer.WaitForConnection();
-
-            Console.WriteLine("Client connected.");
-            try
-            {
-                // Read user input and send that to the client process.
-                using (StreamWriter sw = new StreamWriter(pipeServer))
-                {
-                    sw.AutoFlush = true;
-                    Console.Write("Enter text: ");
-                    sw.WriteLine(Console.ReadLine());
-                }
-            }
-            // Catch the IOException that is raised if the pipe is broken
-            // or disconnected.
-            catch (IOException e)
-            {
-                Console.WriteLine("ERROR: {0}", e.Message);
-            }
-        }
-
-
-using System;
-using System.IO;
-using System.IO.Pipes;
-
-class PipeClient
-{
-    static void Main(string[] args)
-    {
-        using (NamedPipeClientStream pipeClient =
-            new NamedPipeClientStream(".", "testpipe", PipeDirection.In))
-        {
-
-            // Connect to the pipe or wait until the pipe is available.
-            Console.Write("Attempting to connect to pipe...");
-            pipeClient.Connect();
-
-            Console.WriteLine("Connected to pipe.");
-            Console.WriteLine("There are currently {0} pipe server instances open.",
-               pipeClient.NumberOfServerInstances);
-            using (StreamReader sr = new StreamReader(pipeClient))
-            {
-                // Display the read text to the console
-                string temp;
-                while ((temp = sr.ReadLine()) != null)
-                {
-                    Console.WriteLine("Received from server: {0}", temp);
-                }
-            }
-        }
-        Console.Write("Press Enter to continue...");
-        Console.ReadLine();
-    }
-}
-    }
-}
-
-
-
-
 
 
 
@@ -115,31 +39,7 @@ MazeCreator의 사용자 아바타
 5531골드 배지 1개12실버 배지 12개28브론즈 배지 28개
 2016 년 6 월 7 일 23:03에 대답
 Jan Tattermusch의 사용자 아바타
-얀 타테르무쉬(Jan Tattermusch)
-1,65310실버 배지 10개10브론즈 배지 10개
-고마워요, 내 개발 플랫폼에는 외부 라이브러리에 대한 코드 완성 기능이 없습니다. 이것은 약간의 수정으로 작동했습니다. 
-– 
-미로창조자
- 댓글을 달았습니다2016년 6월 9일 17:24
-클라이언트. 분류(기능 설정, 마감일: DateTime.UtcNow.AddSeconds(5)); UtcNow 뒤에서 ()를 제거했습니다. 
-– 
-미로창조자
- 댓글을 달았습니다2016년 6월 9일 17:24
-4
-이 답변은 구식 인 것 같으며 현재 버전에는 Classify가 없습니다. 
-– 
-뚱뚱한 사람
- 댓글을 달았습니다2019년 6월 1일 9:09
-6
-Classify는 예제일 뿐입니다. 따라서 myGrpcClient.MyCall(someParam, deadline: DateTime.UtcNow.AddSeconds(5)); 
-– 
-샌더
- 댓글을 달았습니다2019년 11월 22일 13:58
-한 번 시간 초과. 예외 ( RpcException )가 발생합니까? 
-– 
-프 렘
- 댓글을 달았습니다2020년 10월 6일 5:00
-댓글 추가
+
 11
 
 서버 다운 시나리오를 탐지하기 위한 GRPC 시간 초과는 채널을 연결하기 위해 통화에 사용해야 합니다. 나는 이렇게했다.
