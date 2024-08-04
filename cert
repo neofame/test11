@@ -1,4 +1,32 @@
-            string outfile =   EncryptFile(infile, xcerty.GetRSAPublicKey());
+
+public static CookieCollection SESSIONCookies = null;
+   CookieContainer cookieContainer = new CookieContainer();.
+
+ req.CookieContainer = cookieContainer;
+
+
+  // 쿠키세팅
+  if (SESSIONCookies != null)
+  {
+      cookieContainer.Add(SESSIONCookies);
+  }
+
+
+  HttpWebResponse res = (HttpWebResponse)req.GetResponse();
+
+  // 세션정보 담기 (로그인 세션을 유지)
+  if (SESSIONCookies == null)
+  {
+      SESSIONCookies = res.Cookies;
+  }
+
+
+
+
+
+
+
+string outfile =   EncryptFile(infile, xcerty.GetRSAPublicKey());
 
 
             DecryptFile(outfile, xcerty.GetRSAPrivateKey());
