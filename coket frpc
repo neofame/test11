@@ -1,0 +1,443 @@
+C# .NET Framework 4.7.2에서 CookieCollection을 Protobuf로 변환하여 주고받는 방법을 단계별로 설명하겠습니다. 이 과정은 다음과 같은 단계로 나뉩니다:
+
+	1.	Protobuf 메시지 및 gRPC 서비스 정의
+	2.	Protobuf 및 gRPC 코드 생성
+	3.	gRPC 서버 구현
+	4.	gRPC 클라이언트 구현
+	5.	CookieCollection 변환 및 전송
+
+1. Protobuf 메시지 및 gRPC 서비스 정의
+
+먼저, 쿠키 데이터를 담을 Protobuf 메시지와 gRPC 서비스를 정의합니다. cookies.proto 파일을 생성하고 다음과 같이 정의합니다:
+
+syntax = "proto3";
+
+option csharp_namespace = "CookieService";
+
+message Cookie {
+    string name = 1;
+    string value = 2;
+    string domain = 3;
+    string path = 4;
+    int64 expires = 5; // Unix timestamp
+    bool secure = 6;
+    bool httpOnly = 7;
+}
+
+message CookieCollection {
+    repeated Cookie cookies = 1;
+}
+
+service CookieService {
+    rpc SendCookies(CookieCollection) returns (CookieCollection);
+}
+
+2. Protobuf 및 gRPC 코드 생성
+
+protoc 컴파일러를 사용하여 C# 코드를 생성합니다.
+
+protoc --csharp_out=. --grpc_out=. --plugin=protoc-gen-grpc=grpc_csharp_plugin cookies.proto
+
+3. gRPC 서버 구현
+
+다음으로, 생성된 C# 코드를 사용하여 gRPC 서버를 구현합니다. .NET Framework 4.7.2에서는 gRPC를 직접 지원하지 않으므로, gRPC 서버는 .NET Core 또는 .NET 5 이상에서 구현해야 합니다.
+
+gRPC 서버 코드
+
+using System;
+using System.Threading.Tasks;
+using Grpc.Core;
+using CookieService;
+
+public class CookieServiceImpl : CookieService.CookieServiceBase
+{
+    public override Task<CookieCollection> SendCookies(CookieCollection request, ServerCallContext context)
+    {
+        Console.WriteLine("Received cookies:");
+        foreach (var cookie in request.Cookies)
+        {
+            Console.WriteLine($"Cookie: {cookie.Name} = {cookie.Value}");
+        }
+
+        // For demonstration, simply echo back the cookies
+        return Task.FromResult(request);
+    }
+}
+
+public class Program
+{
+    public static void Main(string[] args)
+    {
+        const int Port = 50051;
+        var server = new Server
+        {
+            Services = { CookieService.CookieService.BindService(new CookieServiceImpl()) },
+            Ports = { new ServerPort("localhost", Port, ServerCredentials.Insecure) }
+        };
+
+        server.Start();
+
+        Console.WriteLine("CookieService server listening on port " + Port);
+        Console.WriteLine("Press any key to stop the server...");
+        Console.ReadKey();
+
+        server.ShutdownAsync().Wait();
+    }
+}
+
+4. gRPC 클라이언트 구현
+
+gRPC 클라이언트는 .NET Framework 4.7.2에서 구현할 수 있습니다. Grpc.Core 패키지를 사용하여 gRPC 클라이언트를 구성합니다.
+
+gRPC 클라이언트 코드
+
+using System;
+using System.Net;
+using System.Threading.Tasks;
+using Grpc.Core;
+using CookieService;
+
+public class CookieClient
+{
+    private readonly CookieService.CookieService.CookieServiceClient _client;
+
+    public CookieClient(CookieService.CookieService.CookieServiceClient client)
+    {
+        _client = client;
+    }
+
+    public async Task SendCookiesAsync(CookieCollection cookies)
+    {
+        var response = await _client.SendCookiesAsync(cookies);
+        Console.WriteLine("Received response cookies:");
+        foreach (var cookie in response.Cookies)
+        {
+            Console.WriteLine($"Cookie: {cookie.Name} = {cookie.Value}");
+        }
+    }
+
+    public static CookieCollection ToProtoCookieCollection(System.Net.CookieCollection cookieCollection)
+    {
+        var protoCollection = new CookieCollection();
+        foreach (System.Net.Cookie cookie in cookieCollection)
+        {
+            var protoCookie = new Cookie
+            {
+                Name = cookie.Name,
+                Value = cookie.Value,
+                Domain = cookie.Domain,
+                Path = cookie.Path,
+                Expires = cookie.Expires == DateTime.MinValue ? 0 : new DateTimeOffset(cookie.Expires).ToUnixTimeSeconds(),
+                Secure = cookie.Secure,
+                HttpOnly = cookie.HttpOnly
+            };
+            protoCollection.Cookies.Add(protoCookie);
+        }
+
+        return protoCollection;
+    }
+
+    public static System.Net.CookieCollection FromProtoCookieCollection(CookieCollection protoCollection)
+    {
+        var cookieCollection = new System.Net.CookieCollection();
+        foreach (var protoCookie in protoCollection.Cookies)
+        {
+            var cookie = new System.Net.Cookie
+            {
+                Name = protoCookie.Name,
+                Value = protoCookie.Value,
+                Domain = protoCookie.Domain,
+                Path = protoCookie.Path,
+                Expires = protoCookie.Expires == 0 ? DateTime.MinValue : DateTimeOffset.FromUnixTimeSeconds(protoCookie.Expires).DateTime,
+                Secure = protoCookie.Secure,
+                HttpOnly = protoCookie.HttpOnly
+            };
+            cookieCollection.Add(cookie);
+        }
+
+        return cookieCollection;
+    }
+}
+
+public class Program
+{
+    public static void Main(string[] args)
+    {
+        const string target = "localhost:50051";
+        Channel channel = new Channel(target, ChannelCredentials.Insecure);
+
+        var client = new CookieService.CookieService.CookieServiceClient(channel);
+        var cookieClient = new CookieClient(client);
+
+        // Example CookieCollection
+        var cookies = new System.Net.CookieCollection
+        {
+            new System.Net.Cookie("session_id", "abc123", "/", "example.com") { Expires = DateTime.Now.AddHours(1), Secure = true, HttpOnly = true }
+        };
+
+        // Convert and send cookies
+        var protoCookies = CookieClient.ToProtoCookieCollection(cookies);
+        cookieClient.SendCookiesAsync(protoCookies).Wait();
+
+        channel.ShutdownAsync().Wait();
+        Console.WriteLine("Client finished");
+    }
+}
+
+5. CookieCollection 변환 및 전송
+
+위의 CookieClient 클래스에서 ToProtoCookieCollection과 FromProtoCookieCollection 메서드를 사용하여 .NET의 CookieCollection과 Protobuf의 CookieCollection 간의 변환을 처리합니다.
+
+요약
+
+	1.	Protobuf 파일 작성: cookies.proto 파일을 정의하여 쿠키 데이터와 gRPC 서비스를 정의합니다.
+	2.	Protobuf 및 gRPC 코드 생성: protoc 컴파일러를 사용하여 C# 코드를 생성합니다.
+	3.	gRPC 서버 구현: CookieServiceImpl 클래스를 구현하여 쿠키 데이터를 처리하고 클라이언트 요청을 처리합니다.
+	4.	gRPC 클라이언트 구현: .NET Framework 4.7.2에서 gRPC 클라이언트를 구현하여 서버와 통신합니다.
+	5.	CookieCollection 변환 및 전송: .NET의 CookieCollection을 Protobuf의 CookieCollection으로 변환하고 gRPC를 통해 주고받습니다.
+
+이렇게 하면 .NET Framework 4.7.2에서 CookieCollection을 Protobuf로 변환하여 gRPC를 통해 주고받을 수 있습니다.
+
+
+
+
+
+
+public class CookieClient
+{
+    private readonly CookieService.CookieService.CookieServiceClient _client;
+
+    public CookieClient(CookieService.CookieService.CookieServiceClient client)
+    {
+        _client = client;
+    }
+
+    public async Task SendCookiesAsync(CookieCollection cookies)
+    {
+        var response = await _client.SendCookiesAsync(cookies);
+        Console.WriteLine("Received response cookies:");
+        foreach (var cookie in response.Cookies)
+        {
+            Console.WriteLine($"Cookie: {cookie.Name} = {cookie.Value}");
+        }
+    }
+
+    public static CookieCollection ToProtoCookieCollection(CookieContainer cookieContainer, Uri uri)
+    {
+        var protoCollection = new CookieCollection();
+        foreach (Cookie cookie in cookieContainer.GetCookies(uri))
+        {
+            var protoCookie = new Cookie
+            {
+                Name = cookie.Name,
+                Value = cookie.Value,
+                Domain = cookie.Domain,
+                Path = cookie.Path,
+                Expires = cookie.Expires == DateTime.MinValue ? 0 : new DateTimeOffset(cookie.Expires).ToUnixTimeSeconds(),
+                Secure = cookie.Secure,
+                HttpOnly = cookie.HttpOnly
+            };
+            protoCollection.Cookies.Add(protoCookie);
+        }
+
+        return protoCollection;
+    }
+}
+
+public class Program
+{
+    public static async Task Main(string[] args)
+    {
+        // Configure gRPC channel
+        var channel = GrpcChannel.ForAddress("http://localhost:50051");
+
+        var client = new CookieService.CookieService.CookieServiceClient(channel);
+        var cookieClient = new CookieClient(client);
+
+        // Use HttpWebRequest to get cookies
+        var request = (HttpWebRequest)WebRequest.Create("https://www.example.com");
+        request.CookieContainer = new CookieContainer();
+        
+        using (var response = (HttpWeb​⬤
+
+
+
+
+
+
+
+
+
+C#에서 HttpResponse의 쿠키를 gRPC 및 Protobuf를 통해 변환하여 보내는 방법을 단계별로 설명하겠습니다. 이 과정은 다음과 같이 나눌 수 있습니다:
+
+	1.	Protobuf 메시지 및 gRPC 서비스 정의
+	2.	gRPC 서버 구현
+	3.	HttpResponse 쿠키 수집 및 gRPC 클라이언트 구현
+
+1. Protobuf 메시지 및 gRPC 서비스 정의
+
+먼저, 쿠키 데이터를 담을 Protobuf 메시지와 gRPC 서비스를 정의합니다. cookies.proto 파일을 생성하고 다음과 같이 정의합니다:
+
+syntax = "proto3";
+
+option csharp_namespace = "CookieService";
+
+message Cookie {
+    string name = 1;
+    string value = 2;
+    string domain = 3;
+    string path = 4;
+    int64 expires = 5; // Unix timestamp
+    bool secure = 6;
+    bool httpOnly = 7;
+}
+
+message CookieCollection {
+    repeated Cookie cookies = 1;
+}
+
+service CookieService {
+    rpc SendCookies(CookieCollection) returns (CookieCollection);
+}
+
+protoc 컴파일러를 사용하여 C# 코드를 생성합니다.
+
+protoc --csharp_out=. --grpc_out=. --plugin=protoc-gen-grpc=grpc_csharp_plugin cookies.proto
+
+2. gRPC 서버 구현
+
+다음으로, 생성된 C# 코드를 사용하여 gRPC 서버를 구현합니다.
+
+gRPC 서버 코드
+
+using System;
+using System.Threading.Tasks;
+using Grpc.Core;
+using CookieService;
+
+public class CookieServiceImpl : CookieService.CookieServiceBase
+{
+    public override Task<CookieCollection> SendCookies(CookieCollection request, ServerCallContext context)
+    {
+        Console.WriteLine("Received cookies:");
+        foreach (var cookie in request.Cookies)
+        {
+            Console.WriteLine($"Cookie: {cookie.Name} = {cookie.Value}");
+        }
+
+        // For demonstration, simply echo back the cookies
+        return Task.FromResult(request);
+    }
+}
+
+public class Program
+{
+    public static void Main(string[] args)
+    {
+        const int Port = 50051;
+        var server = new Server
+        {
+            Services = { CookieService.CookieService.BindService(new CookieServiceImpl()) },
+            Ports = { new ServerPort("localhost", Port, ServerCredentials.Insecure) }
+        };
+
+        server.Start();
+
+        Console.WriteLine("CookieService server listening on port " + Port);
+        Console.WriteLine("Press any key to stop the server...");
+        Console.ReadKey();
+
+        server.ShutdownAsync().Wait();
+    }
+}
+
+3. HttpResponse 쿠키 수집 및 gRPC 클라이언트 구현
+
+이제 HttpResponse의 쿠키를 수집하고 이를 gRPC 클라이언트를 통해 서버에 전송하는 코드를 작성하겠습니다.
+
+gRPC 클라이언트 코드
+
+using System;
+using System.Net;
+using System.Net.Http;
+using System.Threading.Tasks;
+using Grpc.Net.Client;
+using CookieService;
+
+public class CookieClient
+{
+    private readonly CookieService.CookieService.CookieServiceClient _client;
+
+    public CookieClient(CookieService.CookieService.CookieServiceClient client)
+    {
+        _client = client;
+    }
+
+    public async Task SendCookiesAsync(CookieCollection cookies)
+    {
+        var response = await _client.SendCookiesAsync(cookies);
+        Console.WriteLine("Received response cookies:");
+        foreach (var cookie in response.Cookies)
+        {
+            Console.WriteLine($"Cookie: {cookie.Name} = {cookie.Value}");
+        }
+    }
+
+    public static CookieCollection ToProtoCookieCollection(CookieContainer cookieContainer, Uri uri)
+    {
+        var protoCollection = new CookieCollection();
+        foreach (Cookie cookie in cookieContainer.GetCookies(uri))
+        {
+            var protoCookie = new Cookie
+            {
+                Name = cookie.Name,
+                Value = cookie.Value,
+                Domain = cookie.Domain,
+                Path = cookie.Path,
+                Expires = cookie.Expires == DateTime.MinValue ? 0 : new DateTimeOffset(cookie.Expires).ToUnixTimeSeconds(),
+                Secure = cookie.Secure,
+                HttpOnly = cookie.HttpOnly
+            };
+            protoCollection.Cookies.Add(protoCookie);
+        }
+
+        return protoCollection;
+    }
+}
+
+public class Program
+{
+    public static async Task Main(string[] args)
+    {
+        // Configure gRPC channel
+        var channel = GrpcChannel.ForAddress("http://localhost:50051");
+
+        var client = new CookieService.CookieService.CookieServiceClient(channel);
+        var cookieClient = new CookieClient(client);
+
+        // Create an HTTP client and send a request to gather cookies
+        var handler = new HttpClientHandler();
+        handler.CookieContainer = new CookieContainer();
+        var httpClient = new HttpClient(handler);
+        
+        var response = await httpClient.GetAsync("https://www.example.com");
+        
+        // Convert HttpResponse cookies to protobuf CookieCollection
+        var cookies = CookieClient.ToProtoCookieCollection(handler.CookieContainer, new Uri("https://www.example.com"));
+
+        // Send cookies via gRPC
+        await cookieClient.SendCookiesAsync(cookies);
+    }
+}
+
+요약
+
+	1.	Protobuf 파일 작성: cookies.proto 파일을 정의하여 쿠키 데이터와 gRPC 서비스를 정의합니다.
+	2.	gRPC 서버 구현: CookieServiceImpl 클래스를 구현하여 쿠키 데이터를 처리하고 클라이언트 요청을 처리합니다.
+	3.	HttpResponse 쿠키 수집 및 gRPC 클라이언트 구현: HTTP 응답에서 쿠키를 수집하고 이를 Protobuf 메시지로 변환한 후, gRPC 클라이언트를 통해 서버에 전송합니다.
+
+이렇게 하면 HttpResponse의 쿠키를 gRPC 및 Protobuf를 통해 변환하여 주고받을 수 있습니다.
+
+
+
+
