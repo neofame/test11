@@ -1,0 +1,159 @@
+C#에서 SessionCookie를 gRPC를 통해 주고받는 방법을 안내해드리겠습니다. 이 과정은 다음과 같은 단계로 나뉩니다:
+
+	1.	gRPC 서비스 정의 및 protobuf 파일 작성
+	2.	gRPC 서버 구현
+	3.	gRPC 클라이언트 구현
+
+1. gRPC 서비스 정의 및 protobuf 파일 작성
+
+먼저, 쿠키 데이터를 담을 Protobuf 메시지와 gRPC 서비스를 정의합니다. cookies.proto 파일을 생성하고 다음과 같이 정의합니다:
+
+syntax = "proto3";
+
+option csharp_namespace = "CookieService";
+
+message Cookie {
+    string name = 1;
+    string value = 2;
+    string domain = 3;
+    string path = 4;
+    int64 expires = 5; // Unix timestamp
+    bool secure = 6;
+    bool httpOnly = 7;
+}
+
+message CookieCollection {
+    repeated Cookie cookies = 1;
+}
+
+service CookieService {
+    rpc SendCookies(CookieCollection) returns (CookieCollection);
+}
+
+이제 protoc 컴파일러를 사용하여 C# 코드를 생성합니다.
+
+protoc --csharp_out=. --grpc_out=. --plugin=protoc-gen-grpc=grpc_csharp_plugin cookies.proto
+
+2. gRPC 서버 구현
+
+다음으로, 생성된 C# 코드를 사용하여 gRPC 서버를 구현합니다.
+
+gRPC 서버 코드
+
+using System;
+using System.Threading.Tasks;
+using Grpc.Core;
+using Grpc.Net.Client;
+using Grpc.Net.Client.Web;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using CookieService;
+
+public class CookieServiceImpl : CookieService.CookieServiceBase
+{
+    public override Task<CookieCollection> SendCookies(CookieCollection request, ServerCallContext context)
+    {
+        Console.WriteLine("Received cookies:");
+        foreach (var cookie in request.Cookies)
+        {
+            Console.WriteLine($"Cookie: {cookie.Name} = {cookie.Value}");
+        }
+
+        // For demonstration, simply echo back the cookies
+        return Task.FromResult(request);
+    }
+}
+
+public class Program
+{
+    public static void Main(string[] args)
+    {
+        const int Port = 50051;
+        var server = new Server
+        {
+            Services = { CookieService.CookieService.BindService(new CookieServiceImpl()) },
+            Ports = { new ServerPort("localhost", Port, ServerCredentials.Insecure) }
+        };
+
+        server.Start();
+
+        Console.WriteLine("CookieService server listening on port " + Port);
+        Console.WriteLine("Press any key to stop the server...");
+        Console.ReadKey();
+
+        server.ShutdownAsync().Wait();
+    }
+}
+
+3. gRPC 클라이언트 구현
+
+이제 gRPC 클라이언트를 구현합니다.
+
+gRPC 클라이언트 코드
+
+using System;
+using System.Net;
+using System.Net.Http;
+using System.Threading.Tasks;
+using Grpc.Net.Client;
+using CookieService;
+
+public class CookieClient
+{
+    private readonly CookieService.CookieService.CookieServiceClient _client;
+
+    public CookieClient(CookieService.CookieService.CookieServiceClient client)
+    {
+        _client = client;
+    }
+
+    public async Task SendCookiesAsync(CookieCollection cookies)
+    {
+        var response = await _client.SendCookiesAsync(cookies);
+        Console.WriteLine("Received response cookies:");
+        foreach (var cookie in response.Cookies)
+        {
+            Console.WriteLine($"Cookie: {cookie.Name} = {cookie.Value}");
+        }
+    }
+}
+
+public class Program
+{
+    public static async Task Main(string[] args)
+    {
+        // Configure gRPC channel
+        var channel = GrpcChannel.ForAddress("http://localhost:50051");
+
+        var client = new CookieService.CookieService.CookieServiceClient(channel);
+        var cookieClient = new CookieClient(client);
+
+        // Create and send cookies
+        var cookies = new CookieCollection
+        {
+            Cookies =
+            {
+                new Cookie
+                {
+                    Name = "session_id",
+                    Value = "abc123",
+                    Domain = "example.com",
+                    Path = "/",
+                    Expires = DateTimeOffset.UtcNow.AddHours(1).ToUnixTimeSeconds(),
+                    Secure = true,
+                    HttpOnly = true
+                }
+            }
+        };
+
+        await cookieClient.SendCookiesAsync(cookies);
+    }
+}
+
+요약
+
+	1.	protobuf 파일: cookies.proto 파일을 정의하여 쿠키 데이터와 gRPC 서비스를 정의합니다.
+	2.	gRPC 서버: CookieServiceImpl 클래스를 구현하여 쿠키 데이터를 처리하고 클라이언트 요청을 처리합니다.
+	3.	gRPC 클라이언트: CookieClient 클래스를 구현하여 서버에 쿠키 데이터를 전송하고 응답을 처리합니다.
+
+이렇게 하면 gRPC를 통해 SessionCookie 데이터를 주고받을 수 있습니다.
